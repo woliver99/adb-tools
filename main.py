@@ -2,15 +2,20 @@ import subprocess
 from time import sleep
 from TerminalMenu import *
 
-ADB_EXECUTABLE = "adb/adb"
-SCRCPY_PATH = "./scrcpy/scrcpy.exe"
-SCRCPY_CUSTOM_ARGS: list[str] = [
-    "--no-audio",
+ADB_PATH = os.path.abspath("./adb")
+SCRCPY_PATH = os.path.abspath("./scrcpy/scrcpy.exe")
+
+GLOBAL_SCRCPY_ARGS = [
     "--video-bit-rate=8M",
-    "--max-fps=30",
-    "--crop=1600:900:2017:510",
-    "--no-control",
 ]
+SCRCPY_PRESETS: dict[str, list[str]] = {
+    "Default": [],
+    "Quest 2": [
+        "--crop=1600:900:2017:510",
+        "--no-control",
+    ],
+}
+
 
 # ----------------------------------------------------------
 # ADB Commands
@@ -18,7 +23,7 @@ SCRCPY_CUSTOM_ARGS: list[str] = [
 
 
 def adb_devices() -> str:
-    return subprocess.check_output([ADB_EXECUTABLE, "devices"], start_new_session=True).decode("utf-8").removesuffix("\n")
+    return subprocess.check_output(["adb", "devices"], start_new_session=True).decode("utf-8").removesuffix("\n")
 
 
 def get_device_ip(device_id: str) -> str | None:
@@ -26,7 +31,7 @@ def get_device_ip(device_id: str) -> str | None:
     try:
         ip_prop = (
             subprocess.check_output(
-                [ADB_EXECUTABLE, "-s", device_id, "shell",
+                ["adb", "-s", device_id, "shell",
                     "getprop", "dhcp.wlan0.ipaddress"]
             )
             .decode("utf-8")
@@ -40,7 +45,7 @@ def get_device_ip(device_id: str) -> str | None:
     # Fallback to 'ip' command
     try:
         ip_output = subprocess.check_output(
-            [ADB_EXECUTABLE, "-s", device_id, "shell", "ip",
+            ["adb", "-s", device_id, "shell", "ip",
                 "-f", "inet", "addr", "show", "wlan0"]
         ).decode("utf-8").splitlines()
         for line in ip_output:
@@ -54,11 +59,11 @@ def get_device_ip(device_id: str) -> str | None:
 
 
 def disconnect_all_devices():
-    subprocess.run([ADB_EXECUTABLE, "disconnect"])
+    subprocess.run(["adb", "disconnect"])
 
 
 def disconnect_single_device(device_id: str):
-    subprocess.run([ADB_EXECUTABLE, "disconnect", device_id])
+    subprocess.run(["adb", "disconnect", device_id])
 
 # ----------------------------------------------------------
 # Tools
@@ -90,7 +95,7 @@ def select_device_id(menu_title: str = "Select an ADB device") -> str | None:
         print("No device selected. Exiting the menu.")
         return None  # If exit is chosen, we return None
 
-    menu = TerminalMenu(menu_title, options, exit_runnable)
+    menu = OptionMenu(menu_title, options, exit_runnable)
     callable = menu.prompt()
     print("\n")
     device_id: str = callable()
@@ -116,9 +121,13 @@ def connect_wirelessly():
     if device_id is None:
         return
 
-    port = input("Enter port number (leave blank for 5555): ")
-    if not port or not port.isdigit():
-        port = "5555"
+    port = int(NumberInput(
+        "Enter port number",
+        default_value=5555,
+        exit_runnable=lambda: exit(0),
+        min_value=1024,
+        max_value=65535
+    ).prompt())
 
     # Get the device IP
     device_ip = get_device_ip(device_id)
@@ -127,12 +136,11 @@ def connect_wirelessly():
         return
 
     # Enable wireless ADB on that port
-    subprocess.run([ADB_EXECUTABLE, "-s", device_id,
-                   "tcpip", port], check=True)
+    subprocess.run(["adb", "-s", device_id, "tcpip", str(port)], check=True)
 
     # Disconnect stale connections for this IP:port and connect wirelessly
-    subprocess.run([ADB_EXECUTABLE, "disconnect", f"{device_ip}:{port}"])
-    subprocess.run([ADB_EXECUTABLE, "connect", f"{device_ip}:{port}"])
+    subprocess.run(["adb", "disconnect", f"{device_ip}:{port}"])
+    subprocess.run(["adb", "connect", f"{device_ip}:{port}"])
 
 
 def remove_offline_connections():
@@ -154,20 +162,20 @@ def disconnect_devices():
     """
 
     options = [
-        Option("All wireless devices", disconnect_all_devices),
-        Option("All offline devices", remove_offline_connections),
+        Option("Wireless devices", disconnect_all_devices),
+        Option("Offline devices", remove_offline_connections),
     ]
 
     devices = adb_devices_list()
     for device in devices:
         options.append(
-            Option(f"{device}", lambda d=device: disconnect_single_device(d)))
+            Option(f"Device: {device}", lambda d=device: disconnect_single_device(d)))
 
     def exit_runnable():
         print("Exiting disconnect menu without action.")
         return
 
-    callable = TerminalMenu("Disconnect Menu", options, exit_runnable).prompt()
+    callable = OptionMenu("Disconnect Menu", options, exit_runnable).prompt()
     print("\n")
     callable()
 
@@ -177,7 +185,39 @@ def launch_scrcpy():
     if not device_id:
         return
 
-    cmd = [SCRCPY_PATH, "-s", device_id] + SCRCPY_CUSTOM_ARGS
+    args: list[str] = []
+
+    max_fps = int(NumberInput(
+        "Enter max fps",
+        default_value=60,
+        exit_runnable=lambda: exit(0),
+        min_value=1,
+        max_value=None
+    ).prompt())
+    args.append(f"--max-fps={max_fps}")
+
+    print("\n")
+
+    options = [
+        Option("Enable audio capture (disables audio on the headset)", lambda: None),
+        Option("Disable audio capture", lambda: args.append("--no-audio")),
+    ]
+    OptionMenu("Audio capture",
+               options, default_index=2).prompt()()
+
+    print("\n")
+
+    options: list[Option] = []
+    for preset in SCRCPY_PRESETS:
+        options.append(
+            Option(preset, lambda p=preset: args.extend(SCRCPY_PRESETS[p])))
+    OptionMenu("Select a preset", options, default_index=1).prompt()()
+
+    # Add global args
+    args.extend(GLOBAL_SCRCPY_ARGS)
+
+    cmd = [SCRCPY_PATH, "-s", device_id]
+    cmd.extend(args)
     subprocess.run(cmd)
 
 # ----------------------------------------------------------
@@ -186,6 +226,9 @@ def launch_scrcpy():
 
 
 def main():
+    # Change to ADB directory
+    os.chdir(ADB_PATH)
+
     clear_terminal()
     print("Welcome to ADB tools!")
     print()
@@ -200,12 +243,12 @@ def main():
         Option("Launch scrcpy on a device", launch_scrcpy)
     ]
 
-    callable = TerminalMenu("ADB Menu", options).prompt()
+    callable = OptionMenu("ADB Menu", options).prompt()
     print("\n")
     callable()
 
     print("\n\nLoading ADB devices...")
-    sleep(1.5)
+    sleep(2)
     print(adb_devices())
 
 
