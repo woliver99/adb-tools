@@ -2,11 +2,12 @@ import subprocess
 from time import sleep
 from TerminalMenu import *
 
+ADB_EXECUTABLE = "adb/adb"
 SCRCPY_PATH = "./scrcpy/scrcpy.exe"
 SCRCPY_CUSTOM_ARGS: list[str] = [
     "--no-audio",
     "--video-bit-rate=8M",
-    "--max-fps=75",
+    "--max-fps=30",
     "--crop=1600:900:2017:510",
     "--no-control",
 ]
@@ -17,7 +18,7 @@ SCRCPY_CUSTOM_ARGS: list[str] = [
 
 
 def adb_devices() -> str:
-    return subprocess.check_output(["adb", "devices"]).decode("utf-8").removesuffix("\n")
+    return subprocess.check_output([ADB_EXECUTABLE, "devices"], start_new_session=True).decode("utf-8").removesuffix("\n")
 
 
 def get_device_ip(device_id: str) -> str | None:
@@ -25,7 +26,8 @@ def get_device_ip(device_id: str) -> str | None:
     try:
         ip_prop = (
             subprocess.check_output(
-                ["adb", "-s", device_id, "shell", "getprop", "dhcp.wlan0.ipaddress"]
+                [ADB_EXECUTABLE, "-s", device_id, "shell",
+                    "getprop", "dhcp.wlan0.ipaddress"]
             )
             .decode("utf-8")
             .strip()
@@ -38,7 +40,7 @@ def get_device_ip(device_id: str) -> str | None:
     # Fallback to 'ip' command
     try:
         ip_output = subprocess.check_output(
-            ["adb", "-s", device_id, "shell", "ip",
+            [ADB_EXECUTABLE, "-s", device_id, "shell", "ip",
                 "-f", "inet", "addr", "show", "wlan0"]
         ).decode("utf-8").splitlines()
         for line in ip_output:
@@ -52,11 +54,11 @@ def get_device_ip(device_id: str) -> str | None:
 
 
 def disconnect_all_devices():
-    subprocess.run(["adb", "disconnect"])
+    subprocess.run([ADB_EXECUTABLE, "disconnect"])
 
 
 def disconnect_single_device(device_id: str):
-    subprocess.run(["adb", "disconnect", device_id])
+    subprocess.run([ADB_EXECUTABLE, "disconnect", device_id])
 
 # ----------------------------------------------------------
 # Tools
@@ -125,12 +127,12 @@ def connect_wirelessly():
         return
 
     # Enable wireless ADB on that port
-    subprocess.run(["adb", "-s", device_id, "tcpip", port], check=True)
+    subprocess.run([ADB_EXECUTABLE, "-s", device_id,
+                   "tcpip", port], check=True)
 
     # Disconnect stale connections for this IP:port and connect wirelessly
-    subprocess.run(["adb", "disconnect", f"{device_ip}:{port}"])
-    subprocess.run(["adb", "connect", f"{device_ip}:{port}"])
-    sleep(2)
+    subprocess.run([ADB_EXECUTABLE, "disconnect", f"{device_ip}:{port}"])
+    subprocess.run([ADB_EXECUTABLE, "connect", f"{device_ip}:{port}"])
 
 
 def remove_offline_connections():
@@ -144,7 +146,6 @@ def remove_offline_connections():
         disconnect_single_device(device)
 
     print("All offline connections removed.")
-    sleep(1)
 
 
 def disconnect_devices():
@@ -154,6 +155,7 @@ def disconnect_devices():
 
     options = [
         Option("All wireless devices", disconnect_all_devices),
+        Option("All offline devices", remove_offline_connections),
     ]
 
     devices = adb_devices_list()
@@ -163,12 +165,11 @@ def disconnect_devices():
 
     def exit_runnable():
         print("Exiting disconnect menu without action.")
-        return None
+        return
 
     callable = TerminalMenu("Disconnect Menu", options, exit_runnable).prompt()
     print("\n")
     callable()
-    sleep(1)
 
 
 def launch_scrcpy():
@@ -195,8 +196,7 @@ def main():
     # Define menu options
     options = [
         Option("Enable wireless connection to a device", connect_wirelessly),
-        Option("Remove all offline connections", remove_offline_connections),
-        Option("Disconnect a device", disconnect_devices),
+        Option("Disconnect device(s)", disconnect_devices),
         Option("Launch scrcpy on a device", launch_scrcpy)
     ]
 
@@ -204,7 +204,8 @@ def main():
     print("\n")
     callable()
 
-    print()
+    print("\n\nLoading ADB devices...")
+    sleep(1.5)
     print(adb_devices())
 
 

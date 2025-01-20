@@ -1,0 +1,1 @@
+scrcpy\scrcpy.exe --adb ../adb/ -s 1WMHH849RU1196 --video-bit-rate=8M --max-fps=30 --crop=1600:900:2017:510 --no-control
