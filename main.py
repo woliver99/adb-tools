@@ -303,7 +303,9 @@ def main():
     # Change to ADB directory
     os.chdir(ADB_PATH)
 
-    while True:
+    show_menu = True
+
+    while show_menu:
         clear_terminal()
         print("Welcome to ADB tools!\n")
         print(adb_devices())
@@ -315,15 +317,19 @@ def main():
             Option("Launch scrcpy on a device", menu_scrcpy),
             Option("Refresh devices", lambda: print("\033[1A\033[1A\033[1A")),
             Option("Kill adb server", lambda: (
-                stop_server(), spacer(), exit(0))),
+                False, stop_server())[0]),
         ]
 
         callable = OptionMenu("ADB Menu", options,
-                              exit_runnable=lambda: (print("Goodbye!"), spacer(), exit(0))).prompt()
+                              exit_runnable=lambda: (
+                                  False, print("Goodbye!"))[0]).prompt()
 
         spacer()
 
-        callable()
+        if callable() == False:
+            show_menu = False
+            spacer()
+            return
 
         spacer()
         print("Loading ADB devices...")
