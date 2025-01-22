@@ -3,7 +3,7 @@ import platform
 from typing import Callable, Any, Optional
 
 # ----------------------------------------------------------
-# TerminalMenu by woliver99 - v1.1.0
+# TerminalMenu by woliver99
 # ----------------------------------------------------------
 
 
@@ -122,7 +122,7 @@ class NumberInput:
                         self.max_value}"
                 )
 
-    def prompt(self) -> float:
+    def prompt(self) -> float | None:
         default_str = f" [default: {
             self.default_value}]" if self.default_value is not None else ""
         range_str = ""
@@ -157,8 +157,8 @@ class NumberInput:
             except ValueError:
                 print(f"'{user_input}' is not a valid float. Please try again.")
             except KeyboardInterrupt:
-                print()
-                self.exit_runnable()
+                print("")
+                return self.exit_runnable()
 
 
 def clear_terminal():
