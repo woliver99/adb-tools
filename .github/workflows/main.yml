@@ -36,7 +36,7 @@ jobs:
       # Step 4: Build Executable with PyInstaller
       - name: Build Executable
         run: |
-          pyinstaller --onefile --windowed --icon=./assets/icon.ico --name "${{ env.APP_NAME }}" main.py
+          pyinstaller --onefile --windowed --add-data "resources;resources" --icon=./assets/icon.ico --name "${{ env.APP_NAME }}" main.py
 
       # Step 5: Upload Windows Executable as Artifact
       - name: Upload Windows Executable

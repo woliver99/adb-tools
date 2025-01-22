@@ -1,9 +1,11 @@
 import subprocess
+import platform
 from time import sleep
 from TerminalMenu import *
 
-ADB_PATH = os.path.abspath("./adb")
-SCRCPY_PATH = os.path.abspath("./scrcpy/scrcpy.exe")
+bin_path = os.path.abspath(f"./resources/{platform.system().lower()}")
+ADB_PATH = f"{bin_path}/adb"
+SCRCPY_PATH = f"{bin_path}/scrcpy/scrcpy.exe"
 
 GLOBAL_SCRCPY_ARGS = [
     "--video-bit-rate=8M",
@@ -77,6 +79,7 @@ def connect_wireless(ip: str, port: int) -> bool:
 
 
 def launch_scrcpy(device_id: str, extra_args: list[str]):
+    print(SCRCPY_PATH)
     cmd = [SCRCPY_PATH, "-s", device_id]
     cmd.extend(extra_args)
     subprocess.run(cmd)

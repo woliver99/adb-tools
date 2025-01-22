@@ -41,8 +41,7 @@ class OptionMenu:
         if self.default_index is not None:
             if not (1 <= self.default_index <= len(self.options)):
                 raise ValueError(
-                    f"default_index must be between 1 and {len(self.options)}, got {
-                        self.default_index}"
+                    f"default_index must be between 1 and {len(self.options)}, got {self.default_index}"
                 )
 
     def prompt(self) -> Callable[[], Any]:
@@ -77,8 +76,7 @@ class OptionMenu:
                     if 1 <= choice <= len(option_dict):
                         return option_dict[choice]
                 print(
-                    f"'{user_input}' is not a valid option. Please enter a number from 1 to {
-                        len(option_dict)}."
+                    f"'{user_input}' is not a valid option. Please enter a number from 1 to {len(option_dict)}."
                 )
             except KeyboardInterrupt:
                 print()
@@ -113,18 +111,15 @@ class NumberInput:
         if self.default_value is not None:
             if self.min_value is not None and self.default_value < self.min_value:
                 raise ValueError(
-                    f"default_value {self.default_value} is less than min_value {
-                        self.min_value}"
+                    f"default_value {self.default_value} is less than min_value {self.min_value}"
                 )
             if self.max_value is not None and self.default_value > self.max_value:
                 raise ValueError(
-                    f"default_value {self.default_value} is greater than max_value {
-                        self.max_value}"
+                    f"default_value {self.default_value} is greater than max_value {self.max_value}"
                 )
 
     def prompt(self) -> float | None:
-        default_str = f" [default: {
-            self.default_value}]" if self.default_value is not None else ""
+        default_str = f" [default: {self.default_value}]" if self.default_value is not None else ""
         range_str = ""
         if self.min_value is not None and self.max_value is not None:
             range_str = f" (between {self.min_value} and {self.max_value})"
@@ -146,12 +141,12 @@ class NumberInput:
                     value = float(user_input)
                     # Check range if applicable
                     if self.min_value is not None and value < self.min_value:
-                        print(f"Value must be at least {
-                              self.min_value}. Please try again.")
+                        print(
+                            f"Value must be at least {self.min_value}. Please try again.")
                         continue
                     if self.max_value is not None and value > self.max_value:
-                        print(f"Value must be at most {
-                              self.max_value}. Please try again.")
+                        print(
+                            f"Value must be at most {self.max_value}. Please try again.")
                         continue
                     return value
             except ValueError:
