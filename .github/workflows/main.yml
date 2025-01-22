@@ -1,0 +1,149 @@
+name: Build and Release
+
+# Define the environment variable for the app name
+env:
+  APP_NAME: ADB-Tools
+
+# Trigger the workflow on push events to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python 3.12.8
+      - name: Set up Python 3.12.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.8'
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller  # Explicitly install PyInstaller
+
+      # Step 4: Build Executable with PyInstaller
+      - name: Build Executable
+        run: |
+          pyinstaller --onefile --windowed --icon=./assets/icon.ico --name "${{ env.APP_NAME }}" main.py
+
+      # Step 5: Upload Windows Executable as Artifact
+      - name: Upload Windows Executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.APP_NAME }}-windows
+          path: ./dist/${{ env.APP_NAME }}.exe
+
+  build-macos:
+    name: Build macOS Executable (Universal)
+    runs-on: macos-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python 3.12.8 with universal2 architecture
+      - name: Set up Python 3.12.8 (universal2)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.8'
+
+      # Step 3: Upgrade pip and install delocate and PyInstaller
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller  # Explicitly install PyInstaller
+
+      # Step 4: Build Executable with PyInstaller (Universal)
+      - name: Build Executable
+        run: |
+          pyinstaller --onefile --windowed --icon=./assets/icon.icns --name "${{ env.APP_NAME }}" --target-arch universal2 main.py
+
+      # Step 5: Zip the .app Bundle
+      - name: Zip macOS .app Bundle
+        run: |
+          mkdir -p dist/zipped
+          zip -r dist/zipped/${{ env.APP_NAME }}-macos.zip dist/${{ env.APP_NAME }}.app
+
+      # Step 6: Upload macOS .app Bundle as Artifact
+      - name: Upload macOS Executable (.app) as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.APP_NAME }}-macos
+          path: ./dist/zipped/${{ env.APP_NAME }}-macos.zip  # Zipped .app bundle
+
+  release:
+    name: Create GitHub Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Download Windows Executable Artifact
+      - name: Download Windows Executable
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.APP_NAME }}-windows
+          path: ./windows
+
+      # Step 2: Download macOS Executable Artifact
+      - name: Download macOS Executable
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.APP_NAME }}-macos
+          path: ./macos
+
+      # Step 3: Create Git Tag
+      - name: Create Git Tag
+        id: create_tag
+        shell: bash
+        run: |
+          # Generate a tag name using the short commit SHA
+          TAG_NAME="build-${GITHUB_SHA::7}"
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+
+      # Step 4: Create GitHub Release
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          release_name: "Build ${{ env.TAG_NAME }}"
+          draft: false
+          prerelease: false
+
+      # Step 5: Upload Windows Executable to Release
+      - name: Upload Windows Executable to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./windows/${{ env.APP_NAME }}.exe
+          asset_name: ${{ env.APP_NAME }}-windows.exe
+          asset_content_type: application/octet-stream
+
+      # Step 6: Upload macOS .app Bundle to Release
+      - name: Upload macOS Executable (.app) to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./macos/${{ env.APP_NAME }}-macos.zip
+          asset_name: ${{ env.APP_NAME }}-macos.zip
+          asset_content_type: application/zip
