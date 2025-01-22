@@ -1,9 +1,28 @@
+import sys
 import subprocess
 import platform
 from time import sleep
 from TerminalMenu import *
 
-bin_path = os.path.abspath(f"./resources/{platform.system().lower()}")
+
+def resource_path(relative_path: str):
+    """
+    Get the absolute path to a resource, works for development and for PyInstaller.
+
+    :param relative_path: The relative path to the resource from the current script.
+    :return: The absolute path to the resource.
+    """
+    try:
+        # PyInstaller creates a temporary folder and stores its path in _MEIPASS
+        base_path = sys._MEIPASS  # type: ignore
+    except AttributeError:
+        # If not running with PyInstaller, use the current directory
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)  # type: ignore
+
+
+bin_path = resource_path(f"./resources/{platform.system().lower()}")
 ADB_PATH = f"{bin_path}/adb"
 SCRCPY_PATH = f"{bin_path}/scrcpy/scrcpy.exe"
 
@@ -82,7 +101,10 @@ def launch_scrcpy(device_id: str, extra_args: list[str]):
     print(SCRCPY_PATH)
     cmd = [SCRCPY_PATH, "-s", device_id]
     cmd.extend(extra_args)
-    subprocess.run(cmd)
+    try:
+        subprocess.run(cmd)
+    except BaseException as e:
+        print(e)
 
 
 def stop_server():
