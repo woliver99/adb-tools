@@ -47,7 +47,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build-windows, build-macos]
+    needs: [build-windows]
     runs-on: ubuntu-latest
 
     steps:
