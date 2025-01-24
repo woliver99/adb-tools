@@ -23,8 +23,8 @@ def resource_path(relative_path: str):
 
 
 bin_path = resource_path(f"./resources/{platform.system().lower()}")
-ADB_PATH = f"{bin_path}/adb"
-SCRCPY_PATH = f"{bin_path}/scrcpy/scrcpy.exe"
+ADB_PATH = os.path.abspath(f"{bin_path}/adb")
+SCRCPY_PATH = os.path.abspath(f"{bin_path}/scrcpy/scrcpy.exe")
 
 GLOBAL_SCRCPY_ARGS = [
     "--video-bit-rate=8M",
@@ -98,11 +98,10 @@ def connect_wireless(ip: str, port: int) -> bool:
 
 
 def launch_scrcpy(device_id: str, extra_args: list[str]):
-    print(SCRCPY_PATH)
     cmd = [SCRCPY_PATH, "-s", device_id]
     cmd.extend(extra_args)
     try:
-        subprocess.run(cmd)
+        subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
     except BaseException as e:
         print(e)
 
@@ -249,7 +248,7 @@ def menu_scrcpy():
 
     spacer()
 
-    args: list[str] = []
+    args = GLOBAL_SCRCPY_ARGS
 
     max_fps = NumberInput(
         "Enter max fps",
@@ -288,10 +287,7 @@ def menu_scrcpy():
         return
 
     # Add global args
-    args.extend(GLOBAL_SCRCPY_ARGS)
-    clear_terminal()
     launch_scrcpy(device_id, args)
-    input("\n\nPress Enter to return to the menu")
 
 
 # ----------------------------------------------------------
@@ -307,7 +303,7 @@ def main():
 
     while show_menu:
         clear_terminal()
-        print("Welcome to ADB tools!\n")
+        print("Welcome to ADB tools by @woliver99\n")
         print(adb_devices())
 
         # Define menu options
