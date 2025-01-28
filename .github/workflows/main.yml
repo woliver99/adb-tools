@@ -4,11 +4,8 @@ name: Build and Release
 env:
   APP_NAME: ADB-Tools
 
-# Trigger the workflow on push events to the main branch
-on:
-  push:
-    branches:
-      - main
+# Triggers for the workflow
+on: workflow_dispatch
 
 jobs:
   build-windows:

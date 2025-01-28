@@ -27,7 +27,7 @@ ADB_PATH = os.path.abspath(f"{bin_path}/adb")
 SCRCPY_PATH = os.path.abspath(f"{bin_path}/scrcpy/scrcpy.exe")
 
 GLOBAL_SCRCPY_ARGS = [
-    "--video-bit-rate=8M",
+    "--video-bit-rate=4M",
 ]
 SCRCPY_PRESETS: dict[str, list[str]] = {
     "Default": [],
@@ -98,8 +98,17 @@ def connect_wireless(ip: str, port: int) -> bool:
 
 
 def launch_scrcpy(device_id: str, extra_args: list[str]):
-    cmd = [SCRCPY_PATH, "-s", device_id]
-    cmd.extend(extra_args)
+    title_name = device_id
+    if device_id.count(":") == 1:
+        split = device_id.split(":")
+        title_name = f"{split[1]}:{split[0]}"
+
+    scrcpy_cmd = [SCRCPY_PATH, "-s", device_id,
+                  f"--window-title={title_name}"]
+    scrcpy_cmd.extend(extra_args)
+    cmd = ['cmd', '/c']
+    cmd.extend(scrcpy_cmd)
+    cmd.extend(["&&", "pause"])
     try:
         subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
     except BaseException as e:
@@ -109,6 +118,10 @@ def launch_scrcpy(device_id: str, extra_args: list[str]):
 def stop_server():
     print("Killing ADB server...")
     subprocess.run(["adb", "kill-server"])
+
+
+def get_device_name(device_id: str) -> str:
+    return subprocess.check_output(["adb", "-s", device_id, "shell", "settings", "get", "global", "device_name"]).decode().strip()
 
 # ----------------------------------------------------------
 # Tools
@@ -252,7 +265,7 @@ def menu_scrcpy():
 
     max_fps = NumberInput(
         "Enter max fps",
-        default_value=60,
+        default_value=30,
         exit_runnable=exit_message,
         min_value=1,
         max_value=None
